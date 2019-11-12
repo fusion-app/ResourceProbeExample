@@ -3,9 +3,7 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/savaki/jq"
 	"log"
-	"strconv"
 	"time"
 
 	"github.com/fusion-app/ResourceProbeExample/pkg/http-probe"
@@ -25,16 +23,8 @@ var (
 type JSONSelector struct {
 	JQSelector string
 	PatchPath  string
-	ValueType  ValueTypeName
+	ValueType  httpprobe.ValueTypeName
 }
-
-type ValueTypeName string
-
-const (
-	String ValueTypeName = "string"
-	Float ValueTypeName = "float"
-	Bool ValueTypeName = "Bool"
-)
 
 func init() {
 	flag.StringVar(&MQAddress, "mq-address", "localhost:8082", "Kafka MQ listen address")
@@ -62,7 +52,7 @@ func main() {
 	}
 
 	selectors := []JSONSelector{
-		{ JQSelector: ".data.shidu", PatchPath: "/temperature", ValueType: String },
+		{ JQSelector: ".weight", PatchPath: "/weight", ValueType: httpprobe.Float },
 	}
 
 	probeResult := make(chan *probe.Result)
@@ -72,39 +62,18 @@ func main() {
 			if !ok {
 				break
 			}
+			apiParseResult, err := httpprobe.PKUAPIParse(result.ProbeResult)
+			if err != nil {
+				log.Fatalf("Parse PKU API error: %+v", err.Error())
+			}
+			log.Printf("Parse PKU API result: %s", string(apiParseResult))
 
 			var patches []mqhub.PatchItem
 
 			for _, item := range selectors {
-				op, err := jq.Parse(item.JQSelector)
+				value, err := httpprobe.JQParse(apiParseResult, item.JQSelector, item.ValueType)
 				if err != nil {
-					log.Fatalf("Invalid jq error: %+v", err.Error())
-				}
-				valueBytes, err := op.Apply(result.ProbeResult)
-				if err != nil {
-					log.Fatalf("Not found value in json error: %+v", err.Error())
-				}
-				var value interface{}
-				switch item.ValueType {
-				case String:
-					if val, err := strconv.Unquote(string(valueBytes)); err == nil {
-						value = val
-					} else {
-						log.Fatalf("Parse string value error: %+v", err.Error())
-					}
-				case Float:
-					if val, err := strconv.ParseFloat(string(valueBytes), 64); err == nil {
-						value = val
-					} else {
-						log.Fatalf("Parse float value error: %+v", err.Error())
-					}
-				case Bool:
-					if val, err := strconv.ParseBool(string(valueBytes)); err == nil {
-						value = val
-					} else {
-						log.Fatalf("Parse boolean value error: %+v", err.Error())
-					}
-				default:
+					log.Fatalf("Not found value in json error by js '%s': %+v", item.JQSelector, err.Error())
 				}
 				log.Printf("Parse value in json by '%s': %v", item.JQSelector, value)
 				patches = append(patches, mqhub.PatchItem{
@@ -119,7 +88,7 @@ func main() {
 				UpdatePatch: patches,
 				ProbeTime:   result.StartTime,
 			}
-			err := mqhub.Pub(MQAddress, MQTopic, msg)
+			err = mqhub.Pub(MQAddress, MQTopic, msg)
 			if err != nil {
 				log.Fatalf("Pub msg error: %+v", err.Error())
 			}
