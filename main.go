@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"github.com/savaki/jq"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/fusion-app/ResourceProbeExample/pkg/http-probe"
@@ -20,6 +20,20 @@ var (
 	TargetCRDOption mqhub.TargetCRDSpec
 	ProbeOption     probe.Option
 	EndpointOption  httpprobe.HTTPTargetOption
+)
+
+type JSONSelector struct {
+	JQSelector string
+	PatchPath  string
+	ValueType  ValueTypeName
+}
+
+type ValueTypeName string
+
+const (
+	String ValueTypeName = "string"
+	Float ValueTypeName = "float"
+	Bool ValueTypeName = "Bool"
 )
 
 func init() {
@@ -46,6 +60,10 @@ func main() {
 		log.Fatalf("Probe init error: %+v", err)
 	}
 
+	selectors := []JSONSelector{
+		{ JQSelector: ".data.shidu", PatchPath: "/temperature", ValueType: String },
+	}
+
 	probeResult := make(chan *probe.Result)
 	go func() {
 		for {
@@ -53,27 +71,54 @@ func main() {
 			if !ok {
 				break
 			}
-			//log.Printf("Probe result: %+v", result)
 
-			op, err := jq.Parse(".data.wendu")
-			if err != nil {
-				log.Fatalf("Invalid jq error: %+v", err.Error())
-			}
-			value, err := op.Apply(result.ProbeResult)
-			if err != nil {
-				log.Fatalf("Not found value in json error: %+v", err.Error())
-			}
-			log.Printf("Parse value in json by '%s': %s", ".data.wendu", string(value))
+			var patches []mqhub.PatchItem
 
-			patchStr := fmt.Sprintf(`{"op": "replace", "path": "/temperature", "value": "%s"}`, string(value))
-			log.Printf("JSON-Patch string: %s", patchStr)
+			for _, item := range selectors {
+				op, err := jq.Parse(item.JQSelector)
+				if err != nil {
+					log.Fatalf("Invalid jq error: %+v", err.Error())
+				}
+				valueBytes, err := op.Apply(result.ProbeResult)
+				if err != nil {
+					log.Fatalf("Not found value in json error: %+v", err.Error())
+				}
+				var value interface{}
+				switch item.ValueType {
+				case String:
+					if val, err := strconv.Unquote(string(valueBytes)); err == nil {
+						value = val
+					} else {
+						log.Fatalf("Parse string value error: %+v", err.Error())
+					}
+				case Float:
+					if val, err := strconv.ParseFloat(string(valueBytes), 64); err == nil {
+						value = val
+					} else {
+						log.Fatalf("Parse float value error: %+v", err.Error())
+					}
+				case Bool:
+					if val, err := strconv.ParseBool(string(valueBytes)); err == nil {
+						value = val
+					} else {
+						log.Fatalf("Parse boolean value error: %+v", err.Error())
+					}
+				default:
+				}
+				log.Printf("Parse value in json by '%s': %v", item.JQSelector, value)
+				patches = append(patches, mqhub.PatchItem{
+					Op: mqhub.Replace,
+					Path: item.PatchPath,
+					Value: value,
+				})
+			}
 
 			msg := mqhub.MessageSpec{
 				Target:      TargetCRDOption,
-				UpdatePatch: []byte(patchStr),
+				UpdatePatch: patches,
 				ProbeTime:   result.StartTime,
 			}
-			err = mqhub.Pub(MQAddress, MQTopic, msg)
+			err := mqhub.Pub(MQAddress, MQTopic, msg)
 			if err != nil {
 				log.Fatalf("Pub msg error: %+v", err.Error())
 			}

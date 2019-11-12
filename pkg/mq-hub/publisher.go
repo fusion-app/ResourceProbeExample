@@ -26,6 +26,7 @@ func Pub(address string, topic string, msg MessageSpec) error {
 		},
 	}
 	msgBody, err := json.Marshal(pubMsg)
+	log.Printf("MsgBody: %s", string(msgBody))
 	if err != nil {
 		log.Fatalf("Decode json string error: %+v", err.Error())
 	}
