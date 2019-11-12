@@ -51,6 +51,7 @@ func init() {
 	flag.StringVar(&EndpointOption.URL, "http-url", "http", "")
 	flag.StringVar(&EndpointOption.Method, "http-method", "GET", "")
 	flag.BoolVar(&EndpointOption.EnableTLSValidate, "http-tls-validation", true, "")
+	flag.Var(&EndpointOption.Headers, "http-headers", "example: 'Accept: */*; Host: localhost:8080'")
 }
 
 func main() {

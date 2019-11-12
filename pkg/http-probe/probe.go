@@ -5,12 +5,14 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/fusion-app/ResourceProbeExample/pkg/probe"
@@ -32,10 +34,38 @@ type HTTPRequestStats struct {
 	TimeoutCount int64
 }
 
+type HTTPHeaders struct {
+	Data map[string]string
+}
+
 type HTTPTargetOption struct {
 	URL               string
 	Method            string
+	Headers           HTTPHeaders
 	EnableTLSValidate bool
+}
+
+func (headers *HTTPHeaders) String() string {
+	return fmt.Sprintf("http-headers: %d", len(headers.Data))
+}
+
+func (headers *HTTPHeaders) Set(value string) error {
+	if len(headers.Data) > 0 {
+		return fmt.Errorf("The headers is already set ")
+	}
+	headers.Data = make(map[string]string)
+
+	headersArr := strings.Split(value, ";")
+	for _, headerStr := range headersArr {
+		pairs := strings.Split(headerStr, ":")
+		if len(pairs) < 2 {
+			continue
+		}
+		headerKey := strings.TrimSpace(pairs[0])
+		headerVal := strings.TrimSpace(headerStr[len(pairs[0]) + 1:])
+		headers.Data[headerKey] = headerVal
+	}
+	return nil
 }
 
 func (p *HTTPProbe) Init(name string, option *probe.Option, targetOption *HTTPTargetOption) error {
@@ -138,6 +168,10 @@ func (p *HTTPProbe) makeHTTPRequest() *http.Request {
 		return nil
 	}
 	req.Header.Set("Content-type", "application/json")
+	for headerKey, headerVal := range p.httpOpt.Headers.Data {
+		req.Header.Set(headerKey, headerVal)
+		p.logger.Printf("Client set header %s = %s", headerKey, headerVal)
+	}
 
 	return req
 }
