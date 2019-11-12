@@ -11,8 +11,9 @@ type ValueTypeName string
 
 const (
 	String ValueTypeName = "string"
-	Float ValueTypeName = "float"
-	Bool ValueTypeName = "Bool"
+	Float  ValueTypeName = "float"
+	Int    ValueTypeName = "int"
+	Bool   ValueTypeName = "Bool"
 )
 
 func PKUAPIParse(src []byte) ([]byte, error) {
@@ -57,6 +58,12 @@ func JQParse(jsonData []byte, selector string, typeName ValueTypeName) (interfac
 		}
 	case Bool:
 		if val, err := strconv.ParseBool(string(valueBytes)); err == nil {
+			value = val
+		} else {
+			log.Fatalf("Parse boolean value error: %+v", err.Error())
+		}
+	case Int:
+		if val, err := strconv.ParseInt(string(valueBytes), 10, 64); err == nil {
 			value = val
 		} else {
 			log.Fatalf("Parse boolean value error: %+v", err.Error())

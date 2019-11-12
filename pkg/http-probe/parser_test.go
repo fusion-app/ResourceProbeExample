@@ -15,4 +15,7 @@ const TestString string = `
 func TestPKUAPIParse(t *testing.T) {
 	res, err := PKUAPIParse([]byte(TestString))
 	t.Logf("API Parse: %s, %v", res, err)
+
+	val, err := JQParse(res, ".duration", Int)
+	t.Logf("JQ Parse: %v, %v", val, err)
 }
