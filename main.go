@@ -95,7 +95,7 @@ func main() {
 			var patches []mqhub.PatchItem
 			for idx, item := range selectors {
 				value, err := httpprobe.JQParse(apiParseResult, item.JQSelector, item.ValueType)
-				if err != nil {
+				if err != nil || value == nil {
 					log.Printf("Not found value in json error by jq '%s': %+v", item.JQSelector, err.Error())
 					continue
 				}

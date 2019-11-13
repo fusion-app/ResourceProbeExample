@@ -3,7 +3,6 @@ package httpprobe
 import (
 	"fmt"
 	"github.com/savaki/jq"
-	"log"
 	"strconv"
 )
 
@@ -25,10 +24,13 @@ func PKUAPIParse(src []byte) ([]byte, error) {
 	for _, selector := range selectors {
 		parseBody, err = JQParse(dataBody, selector, String)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("JQ '%s' Parse error: %+v", selector, err)
 		}
 		//log.Printf("After jq '%s', result :%s", selector, parseBody.(string))
 		dataBody = []byte(parseBody.(string))
+	}
+	if string(dataBody) == "failed" {
+		return nil, fmt.Errorf("PKU API result is failed")
 	}
 	return dataBody, nil
 }
@@ -42,33 +44,32 @@ func JQParse(jsonData []byte, selector string, typeName ValueTypeName) (interfac
 	if err != nil {
 		return nil, fmt.Errorf("Not found value in json error: %+v ", err.Error())
 	}
-	var value interface{}
 	switch typeName {
 	case String:
 		if val, err := strconv.Unquote(string(valueBytes)); err == nil {
-			value = val
+			return val, nil
 		} else {
-			log.Fatalf("Parse string value error: %+v", err.Error())
+			return nil, fmt.Errorf("Parse string value error: %+v ", err.Error())
 		}
 	case Float:
 		if val, err := strconv.ParseFloat(string(valueBytes), 64); err == nil {
-			value = val
+			return val, nil
 		} else {
-			log.Fatalf("Parse float value error: %+v", err.Error())
+			return nil, fmt.Errorf("Parse float value error: %+v ", err.Error())
 		}
 	case Bool:
 		if val, err := strconv.ParseBool(string(valueBytes)); err == nil {
-			value = val
+			return val, nil
 		} else {
-			log.Fatalf("Parse boolean value error: %+v", err.Error())
+			return nil, fmt.Errorf("Parse boolean value error: %+v ", err.Error())
 		}
 	case Int:
 		if val, err := strconv.ParseInt(string(valueBytes), 10, 64); err == nil {
-			value = val
+			return val, nil
 		} else {
-			log.Fatalf("Parse boolean value error: %+v", err.Error())
+			return nil, fmt.Errorf("Parse boolean value error: %+v ", err.Error())
 		}
 	default:
+		return nil, nil
 	}
-	return value, nil
 }

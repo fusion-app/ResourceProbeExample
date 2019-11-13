@@ -125,41 +125,54 @@ type DataSpec struct {
 	PM10 float32 `json:"pm10"`
 }
 
-func (p *HTTPProbe) doHTTPRequest(req *http.Request) *probe.Result {
+func (p *HTTPProbe) doHTTPRequest(req *http.Request) (*probe.Result, error) {
 	start := time.Now()
 
 	resp, err := p.client.Do(req)
-	// defer resp.Body.Close()
+	defer resp.Body.Close()
 	latency := time.Since(start)
 
 	if err != nil {
 		if isClientTimeout(err) {
-			p.logger.Printf("URL: %s, http.doHTTPRequest: timeout error: %+v", req.URL, err.Error())
 			p.stats.TimeoutCount++
-			return nil
+			return nil, fmt.Errorf("timeout error: %+v", err.Error())
 		}
-		p.logger.Printf("URL: %s, http.doHTTPRequest: %+v", req.URL, err.Error())
-		return nil
+		return nil, fmt.Errorf("unknown error: %+v", err.Error())
+	} else {
+		p.stats.SuccessCount++
 	}
-	p.stats.SuccessCount++
 
 	resBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		p.logger.Printf("URL: %s, http.doHTTPRequest: decode error: %+v", req.URL, err.Error())
-		return nil
+		return nil, fmt.Errorf("decode error: %+v", err.Error())
 	}
 
 	return &probe.Result{
 		StartTime: start,
 		Latency: latency,
 		ProbeResult: resBody,
+	}, nil
+}
+
+func (p *HTTPProbe) doHTTPRequestWithRetry(req *http.Request, retryTimes int) *probe.Result {
+	for {
+		retryTimes--
+		res, err := p.doHTTPRequest(req)
+		if err != nil {
+			p.logger.Printf("URL: %s, http.doHTTPRequest error: %+v", req.URL, err)
+		} else {
+			return res
+		}
+		if retryTimes < 0 {
+			return res
+		}
 	}
 }
 
 func (p *HTTPProbe) makeHTTPRequest() *http.Request {
 	body, err := json.Marshal(map[string]string{})
 	if err != nil {
-		p.logger.Fatalf("Create HTTP request body error: %+v", err)
+		p.logger.Printf("Create HTTP request body error: %+v", err)
 	}
 
 	req, err := http.NewRequest(p.httpOpt.Method, p.httpOpt.URL, bytes.NewBuffer(body))
@@ -197,7 +210,7 @@ func (p *HTTPProbe) Start(ctx context.Context, resultChan chan<- *probe.Result) 
 		reqCtx, _ := context.WithTimeout(ctx, p.opt.Timeout)
 		go func() {
 			req := p.makeHTTPRequest()
-			result := p.doHTTPRequest(req.WithContext(reqCtx))
+			result := p.doHTTPRequestWithRetry(req.WithContext(reqCtx), 3)
 			if result != nil {
 				resultChan <- result
 			}
