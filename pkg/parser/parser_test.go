@@ -1,4 +1,4 @@
-package httpprobe
+package parser
 
 import (
 	"testing"

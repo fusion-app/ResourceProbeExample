@@ -19,11 +19,11 @@ import (
 )
 
 type HTTPProbe struct {
-	name    string
-	opt     *probe.Option
-	logger  *log.Logger
-	httpOpt *HTTPTargetOption
-	stats   *HTTPRequestStats
+	name          string
+	opt           *probe.Option
+	logger  	  *log.Logger
+	httpOpt       *HTTPTargetOption
+	stats         *HTTPRequestStats
 
 	client  *http.Client
 }
@@ -43,6 +43,7 @@ type HTTPTargetOption struct {
 	Method            string
 	Headers           HTTPHeaders
 	EnableTLSValidate bool
+	RetryInterval     time.Duration
 }
 
 func (headers *HTTPHeaders) String() string {
@@ -166,6 +167,7 @@ func (p *HTTPProbe) doHTTPRequestWithRetry(req *http.Request, retryTimes int) *p
 		if retryTimes < 0 {
 			return res
 		}
+		time.Sleep(p.httpOpt.RetryInterval)
 	}
 }
 
