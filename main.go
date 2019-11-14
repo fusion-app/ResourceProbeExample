@@ -107,7 +107,7 @@ func main() {
 					patches = append(patches, mqhub.PatchItem{
 						Op: mqhub.Replace,
 						Path: item.PatchPath,
-						Value: value,
+						Value: fmt.Sprintf("%v", value),
 					})
 				} else {
 					log.Printf("Value('%s') not changed", item.JQSelector)

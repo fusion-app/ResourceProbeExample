@@ -19,15 +19,14 @@ type PatchItem struct {
 	Op    PatchOperation `json:"op"`
 	Path  string         `json:"path"`
 	From  string         `json:"from,omitempty"`
-	Value interface{}    `json:"value,omitempty"`
-
+	Value string    `json:"value,omitempty"`
 }
 
 type PatchOperation string
 
 const (
 	Add PatchOperation = "add"
-	Remove PatchOperation = "rending"
+	Remove PatchOperation = "remove"
 	Replace PatchOperation = "replace"
 	Copy PatchOperation = "copy"
 	Move PatchOperation = "move"

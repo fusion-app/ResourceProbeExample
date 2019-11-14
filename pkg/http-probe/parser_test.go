@@ -29,9 +29,9 @@ func TestPKUAPIParse(t *testing.T) {
 }
 
 func TestPKUAPIParse2(t *testing.T) {
-	res, err := PKUAPIParse([]byte(FailedString))
-	t.Logf("API Parse: %s, %+v", res, err)
-
+	//res, err := PKUAPIParse([]byte(FailedString))
+	//t.Logf("API Parse: %s, %+v", res, err)
+	t.Logf("%v", 15.6)
 	//val, err := JQParse(res, ".duration", Int)
 	//t.Logf("JQ Parse: %v, %v", val, err)
 }

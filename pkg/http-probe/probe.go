@@ -129,7 +129,7 @@ func (p *HTTPProbe) doHTTPRequest(req *http.Request) (*probe.Result, error) {
 	start := time.Now()
 
 	resp, err := p.client.Do(req)
-	defer resp.Body.Close()
+	//defer resp.Body.Close()
 	latency := time.Since(start)
 
 	if err != nil {
