@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"github.com/fusion-app/prober/pkg/parser"
 	"log"
 	"time"
@@ -34,14 +35,17 @@ func init() {
 	flag.DurationVar(&ProbeOption.Timeout, "probe-timeout", 3 * time.Second, "")
 
 	flag.StringVar(&EndpointOption.URL, "http-url", "http", "")
-	flag.StringVar(&EndpointOption.Method, "http-method", "GET", "")
-	flag.BoolVar(&EndpointOption.EnableTLSValidate, "http-tls-validation", true, "")
 	flag.DurationVar(&EndpointOption.RetryInterval, "http-retry-interval", time.Second, "")
 	flag.Var(&EndpointOption.Headers, "http-headers", "example: 'Accept: */*; Host: localhost:8080'")
 }
 
 func main() {
 	flag.Parse()
+
+	EndpointOption.URL = fmt.Sprintf("%s?uid=%s", EndpointOption.URL, TargetCRDOption.UID)
+	EndpointOption.Method = "GET"
+	EndpointOption.EnableTLSValidate = false
+
 	prober := &httpprobe.HTTPProbe{}
 	if err := prober.Init("http-probe(weather)", &ProbeOption, &EndpointOption); err != nil {
 		log.Fatalf("Probe init error: %+v", err)
