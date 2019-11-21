@@ -1,4 +1,4 @@
-module github.com/fusion-app/ResourceProbeExample
+module github.com/fusion-app/prober
 
 go 1.12
 

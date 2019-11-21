@@ -4,7 +4,8 @@ import "time"
 
 type MessageSpec struct {
 	Target      TargetCRDSpec `json:"target"`
-	UpdatePatch []PatchItem   `json:"updatePatch"`
+	LabelsPatch []PatchItem   `json:"labelsPatch,omitempty"`
+	StatusPatch []PatchItem   `json:"statusPatch,omitempty"`
 	ProbeTime   time.Time	  `json:"probeTime"`
 }
 
@@ -19,7 +20,7 @@ type PatchItem struct {
 	Op    PatchOperation `json:"op"`
 	Path  string         `json:"path"`
 	From  string         `json:"from,omitempty"`
-	Value string    `json:"value,omitempty"`
+	Value interface{}    `json:"value,omitempty"`
 }
 
 type PatchOperation string

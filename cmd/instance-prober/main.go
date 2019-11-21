@@ -3,13 +3,13 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/fusion-app/ResourceProbeExample/pkg/parser"
+	"github.com/fusion-app/prober/pkg/parser"
 	"log"
 	"time"
 
-	"github.com/fusion-app/ResourceProbeExample/pkg/http-probe"
-	"github.com/fusion-app/ResourceProbeExample/pkg/mq-hub"
-	"github.com/fusion-app/ResourceProbeExample/pkg/probe"
+	"github.com/fusion-app/prober/pkg/http-probe"
+	"github.com/fusion-app/prober/pkg/mq-hub"
+	"github.com/fusion-app/prober/pkg/probe"
 )
 
 var (
@@ -19,8 +19,6 @@ var (
 	TargetCRDOption mqhub.TargetCRDSpec
 	ProbeOption     probe.Option
 	EndpointOption  httpprobe.HTTPTargetOption
-
-	PatchCreator    parser.PatchCreatorSpec
 )
 
 func init() {
@@ -40,8 +38,6 @@ func init() {
 	flag.BoolVar(&EndpointOption.EnableTLSValidate, "http-tls-validation", true, "")
 	flag.DurationVar(&EndpointOption.RetryInterval, "http-retry-interval", time.Second, "")
 	flag.Var(&EndpointOption.Headers, "http-headers", "example: 'Accept: */*; Host: localhost:8080'")
-
-	flag.Var(&PatchCreator, "patch-creator", "example: '.weight;/weight;float'")
 }
 
 func main() {
@@ -58,21 +54,23 @@ func main() {
 			if !ok {
 				log.Fatalf("Probe result channel has been closed")
 			}
-			apiParseResult, err := parser.PKUAPIParse(result.ProbeResult)
+			apiParseResult, err := parser.Parse(parser.Normal, result.ProbeResult)
 			if err != nil {
-				log.Printf("Parse PKU API error: %+v", err.Error())
+				log.Printf("Parse probe result error: %+v", err.Error())
 				continue
 			}
-			log.Printf("Parse PKU API result: %s", string(apiParseResult))
+			log.Printf("Parse probe result: %s", string(apiParseResult))
 
-			patches := PatchCreator.CreatePatches(apiParseResult)
+			patches, err := parser.CreateAppInstanceStatusPatches(apiParseResult)
 
-			if len(patches) == 0 {
+			if err != nil {
+				log.Printf("Create patches has error: %+v", err)
+			} else if len(patches) == 0 {
 				log.Printf("Patches is empty, not Pub Msg")
 			} else {
 				msg := mqhub.MessageSpec{
 					Target:      TargetCRDOption,
-					UpdatePatch: patches,
+					StatusPatch: patches,
 					ProbeTime:   result.StartTime,
 				}
 				err = mqhub.Pub(MQAddress, MQTopic, msg)

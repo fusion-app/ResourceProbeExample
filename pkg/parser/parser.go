@@ -12,8 +12,27 @@ const (
 	String ValueTypeName = "string"
 	Float  ValueTypeName = "float"
 	Int    ValueTypeName = "int"
-	Bool   ValueTypeName = "Bool"
+	Bool   ValueTypeName = "bool"
+	Any    ValueTypeName = "any"
 )
+
+type ParserType string
+
+const (
+	Normal ParserType = "Normal"
+	PKUAPI ParserType = "PKUAPI"
+)
+
+func Parse(parserType ParserType, src []byte) ([]byte, error) {
+	switch parserType {
+	case Normal:
+		return NormalAPIParse(src)
+	case PKUAPI:
+		return PKUAPIParse(src)
+	default:
+		return nil, nil
+	}
+}
 
 func PKUAPIParse(src []byte) ([]byte, error) {
 	selectors := []string{".data", ".result", ".response", "returnJSONStr"}
@@ -33,6 +52,10 @@ func PKUAPIParse(src []byte) ([]byte, error) {
 		return nil, fmt.Errorf("PKU API result is failed")
 	}
 	return dataBody, nil
+}
+
+func NormalAPIParse(src []byte) ([]byte, error) {
+	return src, nil
 }
 
 func JQParse(jsonData []byte, selector string, typeName ValueTypeName) (interface{}, error) {
@@ -69,6 +92,8 @@ func JQParse(jsonData []byte, selector string, typeName ValueTypeName) (interfac
 		} else {
 			return nil, fmt.Errorf("Parse boolean value error: %+v ", err.Error())
 		}
+	case Any:
+		return valueBytes, nil
 	default:
 		return nil, nil
 	}

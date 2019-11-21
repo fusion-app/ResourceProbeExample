@@ -1,46 +1,12 @@
 package parser
 
 import (
-	"bytes"
+	"encoding/json"
 	"fmt"
-	"github.com/fusion-app/ResourceProbeExample/pkg/mq-hub"
+	"github.com/fusion-app/prober/pkg/mq-hub"
 	"log"
-	"strings"
+	"time"
 )
-
-type PatchCreatorSpec struct {
-	Selectors  []JSONSelector
-	FirstProbe bool
-}
-
-type JSONSelector struct {
-	JQSelector string
-	PatchPath  string
-	PrevValue  interface{}
-	ValueType  ValueTypeName
-}
-
-func (creator *PatchCreatorSpec) String() string {
-	var b bytes.Buffer
-	for _, selector := range creator.Selectors {
-		b.WriteString(fmt.Sprintf(" { selector: %s; path: %s; type: %s } ", selector.JQSelector, selector.PatchPath, selector.ValueType))
-	}
-	return b.String()
-}
-
-func (creator *PatchCreatorSpec) Set(value string) error {
-	items := strings.Split(value, ";")
-	if len(items) < 3 {
-		return fmt.Errorf("JSONSelector is invalid")
-	}
-	selector := JSONSelector{
-		JQSelector: strings.TrimSpace(items[0]),
-		PatchPath: strings.TrimSpace(items[1]),
-		ValueType: ValueTypeName(strings.TrimSpace(items[2])),
-	}
-	creator.Selectors = append(creator.Selectors, selector)
-	return nil
-}
 
 func (creator *PatchCreatorSpec) CreatePatches(json []byte) []mqhub.PatchItem {
 	var patches []mqhub.PatchItem
@@ -51,18 +17,49 @@ func (creator *PatchCreatorSpec) CreatePatches(json []byte) []mqhub.PatchItem {
 			continue
 		}
 		log.Printf("Parse value in json by '%s': %v, initValue: %v", item.JQSelector, value, item.PrevValue)
-		if creator.FirstProbe {
-			creator.Selectors[idx].PrevValue = value
-		} else if item.PrevValue != value {
+		if creator.FirstProbe || item.PrevValue != value {
 			creator.Selectors[idx].PrevValue = value
 			patches = append(patches, mqhub.PatchItem{
 				Op:    mqhub.Add,
 				Path:  item.PatchPath,
-				Value: fmt.Sprintf("%v", value),
+				Value: value,
 			})
 		} else {
 			log.Printf("Value('%s') not changed", item.JQSelector)
 		}
 	}
 	return patches
+}
+
+func CreateAppInstanceStatusPatches(response []byte) ([]mqhub.PatchItem, error) {
+	var probeStatus []ProbeActionStatus
+	if err := json.Unmarshal(response, &probeStatus); err != nil {
+		return nil, fmt.Errorf("Invalid app instance status probe response: %+v ", err)
+	}
+	var patchStatus []PatchActionStatus
+	for _, item := range probeStatus {
+		patchStatus = append(patchStatus, PatchActionStatus{
+			ActionID:    item.ActionID,
+			ActionName:  item.ActionName,
+			RefResource: item.RefResource,
+			State:       item.State,
+		})
+	}
+	if len(patchStatus) > 0 {
+		patches := []mqhub.PatchItem{
+			{
+				Op:    mqhub.Add,
+				Path:  "/actionStatus",
+				Value: patchStatus,
+			},
+			{
+				Op:    mqhub.Add,
+				Path:  "/updateTime",
+				Value: time.Now().String(),
+			},
+		}
+		return patches, nil
+	} else {
+		return nil, fmt.Errorf("Empty app instance status probe response ")
+	}
 }

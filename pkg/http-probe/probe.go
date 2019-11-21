@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fusion-app/ResourceProbeExample/pkg/probe"
+	"github.com/fusion-app/prober/pkg/probe"
 )
 
 type HTTPProbe struct {
