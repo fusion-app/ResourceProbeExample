@@ -8,7 +8,7 @@ import (
 
 type PatchCreatorSpec struct {
 	Selectors  []JSONSelector
-	FirstProbe bool
+	// FirstProbe bool
 }
 
 type JSONSelector struct {
@@ -23,6 +23,7 @@ type ProbeActionStatus struct {
 	ActionName  string      `json:"action_name"`
 	ResourceID  string      `json:"resource_id"`
 	RefResource RefResource `json:"resource_instance_id,omitempty"`
+	UpdateTime  string      `json:"action_state_time,omitempty"`
 	State       ActionState `json:"action_state"`
 }
 
@@ -47,6 +48,7 @@ type PatchActionStatus struct {
 	ActionID    string      `json:"actionID"`
 	ActionName  string      `json:"actionName"`
 	RefResource RefResource `json:"refResource,omitempty"`
+	UpdateTime  string      `json:"updateTime"`
 	State       ActionState `json:"state"`
 }
 

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/fusion-app/prober/pkg/mq-hub"
 	"log"
-	"time"
 )
 
 func (creator *PatchCreatorSpec) CreatePatches(json []byte) []mqhub.PatchItem {
@@ -17,12 +16,12 @@ func (creator *PatchCreatorSpec) CreatePatches(json []byte) []mqhub.PatchItem {
 			continue
 		}
 		log.Printf("Parse value in json by '%s': %v, initValue: %v", item.JQSelector, value, item.PrevValue)
-		if creator.FirstProbe || item.PrevValue != value {
+		if item.PrevValue != value {
 			creator.Selectors[idx].PrevValue = value
 			patches = append(patches, mqhub.PatchItem{
 				Op:    mqhub.Add,
 				Path:  item.PatchPath,
-				Value: value,
+				Value: fmt.Sprintf("%v", value),
 			})
 		} else {
 			log.Printf("Value('%s') not changed", item.JQSelector)
@@ -42,6 +41,7 @@ func CreateAppInstanceStatusPatches(response []byte) ([]mqhub.PatchItem, error) 
 			ActionID:    item.ActionID,
 			ActionName:  item.ActionName,
 			RefResource: item.RefResource,
+			UpdateTime:  item.UpdateTime,
 			State:       item.State,
 		})
 	}
@@ -51,11 +51,6 @@ func CreateAppInstanceStatusPatches(response []byte) ([]mqhub.PatchItem, error) 
 				Op:    mqhub.Add,
 				Path:  "/actionStatus",
 				Value: patchStatus,
-			},
-			{
-				Op:    mqhub.Add,
-				Path:  "/updateTime",
-				Value: time.Now().String(),
 			},
 		}
 		return patches, nil

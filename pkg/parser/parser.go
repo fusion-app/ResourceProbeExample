@@ -35,7 +35,7 @@ func Parse(parserType ParserType, src []byte) ([]byte, error) {
 }
 
 func PKUAPIParse(src []byte) ([]byte, error) {
-	selectors := []string{".data", ".result", ".response", "returnJSONStr"}
+	selectors := []string{".data", ".result", "returnJSONStr"}
 
 	var dataBody = src
 	var parseBody interface{}

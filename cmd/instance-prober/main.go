@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -42,7 +43,7 @@ func init() {
 func main() {
 	flag.Parse()
 
-	EndpointOption.URL = fmt.Sprintf("%s?uid=%s", EndpointOption.URL, TargetCRDOption.UID)
+	EndpointOption.URL = fmt.Sprintf("%s?uid=%s/%s", EndpointOption.URL, TargetCRDOption.Namespace, TargetCRDOption.Name)
 	EndpointOption.Method = "GET"
 	EndpointOption.EnableTLSValidate = false
 
@@ -52,6 +53,7 @@ func main() {
 	}
 
 	probeResult := make(chan *probe.Result)
+	var preProbeResult []byte
 	go func() {
 		for {
 			result, ok := <-probeResult
@@ -62,7 +64,11 @@ func main() {
 			if err != nil {
 				log.Printf("Parse probe result error: %+v", err.Error())
 				continue
+			} else if bytes.Equal(preProbeResult, apiParseResult) {
+				log.Printf("Probe result not changed, ignore")
+				continue
 			}
+			preProbeResult = apiParseResult
 			log.Printf("Parse probe result: %s", string(apiParseResult))
 
 			patches, err := parser.CreateAppInstanceStatusPatches(apiParseResult)
