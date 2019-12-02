@@ -32,7 +32,7 @@ func init() {
 	flag.StringVar(&TargetCRDOption.Namespace, "crd-namespace", "default", "")
 	flag.StringVar(&TargetCRDOption.UID, "crd-uid", "", "")
 
-	flag.DurationVar(&ProbeOption.Interval, "probe-interval", 15 * time.Second, "")
+	flag.DurationVar(&ProbeOption.Interval, "probe-interval", 6 * time.Second, "")
 	flag.DurationVar(&ProbeOption.Timeout, "probe-timeout", 3 * time.Second, "")
 
 	flag.StringVar(&EndpointOption.URL, "http-url", "http", "")

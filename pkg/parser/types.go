@@ -24,7 +24,7 @@ type ProbeActionStatus struct {
 	ResourceID  string      `json:"resource_id"`
 	RefResource RefResource `json:"resource_instance_id,omitempty"`
 	UpdateTime  string      `json:"action_state_time,omitempty"`
-	State       ActionState `json:"action_state"`
+	State       ActionState `json:"state"`
 }
 
 type RefResource struct {
