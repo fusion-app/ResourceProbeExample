@@ -1,14 +1,14 @@
-FROM golang:1.11 as builder
+FROM golang:1.14-alpine3.12 as builder
 
-ENV GO111MODULE=on
-ENV GOPROXY=https://goproxy.io
+ENV GOPATH /go
+ENV GOPROXY=https://goproxy.cn
 
 COPY . /go/src/github.com/fusion-app/prober
 
-RUN cd /go/src/github.com/fusion-app/prober && go build -v github.com/fusion-app/prober/cmd/resource-prober
+RUN go build -o /resource-prober /go/src/github.com/fusion-app/prober/cmd/resource-prober
 
-FROM registry.njuics.cn/library/ubuntu:18.04
+FROM alpine:3.10
 
-COPY --from=builder /go/src/github.com/fusion-app/prober/resource-prober /root/prober
+COPY --from=builder /resource-prober /root/resource-prober
 
-ENTRYPOINT ["/root/prober"]
+ENTRYPOINT ["/root/resource-prober"]

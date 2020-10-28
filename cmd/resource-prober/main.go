@@ -3,13 +3,18 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/fusion-app/prober/pkg/parser"
+	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
+	"github.com/fusion-app/prober/pkg/base"
+	"github.com/fusion-app/prober/pkg/config"
 	"github.com/fusion-app/prober/pkg/http-probe"
+	"github.com/fusion-app/prober/pkg/http-setter"
 	"github.com/fusion-app/prober/pkg/mq-hub"
-	"github.com/fusion-app/prober/pkg/probe"
 )
 
 var (
@@ -17,11 +22,9 @@ var (
 	MQTopic   string
 
 	TargetCRDOption mqhub.TargetCRDSpec
-	ProbeOption     probe.Option
-	EndpointOption  httpprobe.HTTPTargetOption
+	ProbeOption     base.ProbeOption
 
-	ParserType   string
-	PatchCreator parser.PatchCreatorSpec
+	PatcherConfigPath string
 )
 
 func init() {
@@ -33,57 +36,39 @@ func init() {
 	flag.StringVar(&TargetCRDOption.Namespace, "crd-namespace", "default", "")
 	flag.StringVar(&TargetCRDOption.UID, "crd-uid", "", "")
 
-	flag.DurationVar(&ProbeOption.Interval, "probe-interval", 15 * time.Second, "")
-	flag.DurationVar(&ProbeOption.Timeout, "probe-timeout", 3 * time.Second, "")
+	flag.DurationVar(&ProbeOption.Interval, "probe-interval", 15*time.Second, "")
+	flag.DurationVar(&ProbeOption.Timeout, "probe-timeout", 3*time.Second, "")
 
-	flag.StringVar(&EndpointOption.URL, "http-url", "http", "")
-	flag.StringVar(&EndpointOption.Method, "http-method", "GET", "")
-	flag.BoolVar(&EndpointOption.EnableTLSValidate, "http-tls-validation", true, "")
-	flag.DurationVar(&EndpointOption.RetryInterval, "http-retry-interval", time.Second, "")
-	flag.Var(&EndpointOption.Headers, "http-headers", "example: 'Accept: */*; Host: localhost:8080'")
-
-	flag.StringVar(&ParserType, "parser", string(parser.Normal), "enum: { Normal, PKUAPI }")
-
-	flag.Var(&PatchCreator, "patch-creator", "example: '.weight;/weight;float'")
+	flag.StringVar(&PatcherConfigPath, "patcher-cfg-path", "", "patcher config file path")
 }
 
 func main() {
 	flag.Parse()
-	prober := &httpprobe.HTTPProbe{}
-	if err := prober.Init("http-probe(weather)", &ProbeOption, &EndpointOption); err != nil {
-		log.Fatalf("Probe init error: %+v", err)
+
+	patcherCfg, err := config.ParsePatcherConfig(PatcherConfigPath)
+	if err != nil {
+		log.Fatalf("Setter config (%s) init error: %v", PatcherConfigPath, err)
 	}
 
-	probeResult := make(chan *probe.Result)
-	go func() {
-		for {
-			result, ok := <-probeResult
-			if !ok {
-				log.Fatalf("Probe result channel has been closed")
-			}
-			apiParseResult, err := parser.Parse(parser.ParserType(ParserType), result.ProbeResult)
-			if err != nil {
-				log.Printf("Parse probe result error: %+v", err.Error())
-				continue
-			}
-			log.Printf("Parse probe result: %s", string(apiParseResult))
+	for idx, patcher := range patcherCfg.Patchers {
+		probe := http_probe.NewHTTPProbe(fmt.Sprintf("probe-%d", idx), &ProbeOption, &patcher.Source)
 
-			patches := PatchCreator.CreatePatches(apiParseResult)
-
-			if len(patches) == 0 {
-				log.Printf("Patches is empty, not Pub Msg")
-			} else {
-				msg := mqhub.MessageSpec{
-					Target:      TargetCRDOption,
-					LabelsPatch: patches,
-					ProbeTime:   result.StartTime,
-				}
-				err = mqhub.Pub(MQAddress, MQTopic, msg)
-				if err != nil {
-					log.Printf("Pub msg error: %+v", err.Error())
-				}
-			}
+		var setters []base.Setter
+		for _, setterCfg := range patcher.Setters {
+			setters = append(setters, http_setter.NewHTTPSetter(
+				fmt.Sprintf("setter-%d", idx),
+				ProbeOption.Timeout, ProbeOption.Interval,
+				&setterCfg))
 		}
-	}()
-	prober.Start(context.Background(), probeResult)
+
+		worker := base.NewWorker(fmt.Sprintf("worker-%d", idx), probe, setters)
+		go worker.Start(context.TODO())
+	}
+	log.Printf("All patchers has been started")
+
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	<-c
+	log.Printf("\r- Ctrl+C pressed in Terminal")
+	os.Exit(0)
 }

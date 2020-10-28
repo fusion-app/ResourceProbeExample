@@ -5,13 +5,15 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/fusion-app/prober/pkg/parser"
 	"log"
 	"time"
 
+	"github.com/fusion-app/prober/pkg/base"
+	"github.com/fusion-app/prober/pkg/config"
 	"github.com/fusion-app/prober/pkg/http-probe"
 	"github.com/fusion-app/prober/pkg/mq-hub"
-	"github.com/fusion-app/prober/pkg/probe"
+	"github.com/fusion-app/prober/pkg/parser"
+	"github.com/fusion-app/prober/pkg/utils"
 )
 
 var (
@@ -19,8 +21,8 @@ var (
 	MQTopic   string
 
 	TargetCRDOption mqhub.TargetCRDSpec
-	ProbeOption     probe.Option
-	EndpointOption  httpprobe.HTTPTargetOption
+	ProbeOption     base.ProbeOption
+	EndpointOption  utils.HTTPTargetOption
 )
 
 func init() {
@@ -32,8 +34,8 @@ func init() {
 	flag.StringVar(&TargetCRDOption.Namespace, "crd-namespace", "default", "")
 	flag.StringVar(&TargetCRDOption.UID, "crd-uid", "", "")
 
-	flag.DurationVar(&ProbeOption.Interval, "probe-interval", 6 * time.Second, "")
-	flag.DurationVar(&ProbeOption.Timeout, "probe-timeout", 3 * time.Second, "")
+	flag.DurationVar(&ProbeOption.Interval, "probe-interval", 6*time.Second, "")
+	flag.DurationVar(&ProbeOption.Timeout, "probe-timeout", 3*time.Second, "")
 
 	flag.StringVar(&EndpointOption.URL, "http-url", "http", "")
 	flag.DurationVar(&EndpointOption.RetryInterval, "http-retry-interval", time.Second, "")
@@ -47,12 +49,13 @@ func main() {
 	EndpointOption.Method = "GET"
 	EndpointOption.EnableTLSValidate = false
 
-	prober := &httpprobe.HTTPProbe{}
-	if err := prober.Init("http-probe(weather)", &ProbeOption, &EndpointOption); err != nil {
-		log.Fatalf("Probe init error: %+v", err)
-	}
+	httpProbe := http_probe.NewHTTPProbe("http-probe(weather)", &ProbeOption, &config.HTTPActionSpec{
+		Action:  "POST",
+		URL:     EndpointOption.URL,
+		Headers: EndpointOption.Headers.Data,
+	})
 
-	probeResult := make(chan *probe.Result)
+	probeResult := make(chan *base.Result)
 	var preProbeResult []byte
 	go func() {
 		for {
@@ -90,5 +93,5 @@ func main() {
 			}
 		}
 	}()
-	prober.Start(context.Background(), probeResult)
+	httpProbe.Start(context.Background(), probeResult)
 }

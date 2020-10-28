@@ -87,7 +87,7 @@ func JQParse(jsonData []byte, selector string, typeName ValueTypeName) (interfac
 			return nil, fmt.Errorf("Parse boolean value error: %+v ", err.Error())
 		}
 	case Int:
-		if val, err := strconv.ParseInt(string(valueBytes), 10, 64); err == nil {
+		if val, err := strconv.Atoi(string(valueBytes)); err == nil {
 			return val, nil
 		} else {
 			return nil, fmt.Errorf("Parse boolean value error: %+v ", err.Error())

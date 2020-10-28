@@ -1,10 +1,12 @@
-package probe
+package base
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 type Probe interface {
-	Init(name string, options map[string]interface{}) error
-	Start(resultChan chan<- interface{}) error
+	Start(context.Context, chan<- *Result)
 }
 
 type Result struct {
@@ -14,7 +16,7 @@ type Result struct {
 	ProbeResult []byte
 }
 
-type Option struct {
+type ProbeOption struct {
 	Interval time.Duration
 	Timeout time.Duration
 }
